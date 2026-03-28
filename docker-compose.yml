@@ -1,0 +1,57 @@
+version: '3.9'
+
+services:
+  # ── Base de datos ─────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: mercaapp_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mercaapp
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d mercaapp']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Backend NestJS ────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mercaapp_backend
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/mercaapp?schema=public
+      JWT_SECRET: ${JWT_SECRET:-mercaapp_jwt_change_in_production}
+      JWT_EXPIRES_IN: 8h
+      PORT: 3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  # ── Frontend React ────────────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: mercaapp_frontend
+    restart: unless-stopped
+    ports:
+      - '80:80'
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

@@ -1,0 +1,307 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── ENUMS ───────────────────────────────────────────────────
+
+enum RolUsuario {
+  admin
+  vendedor
+  cobrador
+}
+
+enum TipoVenta {
+  contado
+  credito
+}
+
+enum EstadoVenta {
+  pendiente
+  despachado
+  anulado
+}
+
+enum EstadoCuota {
+  pendiente
+  pagada
+  vencida
+  parcial
+}
+
+enum EstadoDespacho {
+  pendiente
+  en_ruta
+  entregado
+  devuelto
+}
+
+enum EstadoGarantia {
+  activa
+  por_vencer
+  vencida
+  reclamada
+}
+
+enum MetodoPago {
+  efectivo
+  transferencia
+  nequi
+  daviplata
+  tarjeta
+}
+
+enum TipoMovimiento {
+  entrada
+  salida
+  ajuste
+  devolucion
+}
+
+enum TipoDocumento {
+  CC
+  NIT
+  CE
+  TI
+  PP
+}
+
+// ─── MODELOS ─────────────────────────────────────────────────
+
+model Usuario {
+  id            String      @id @default(uuid())
+  nombre        String      @db.VarChar(100)
+  email         String?     @unique @db.VarChar(150)
+  telefono      String?     @db.VarChar(20)
+  rol           RolUsuario  @default(vendedor)
+  passwordHash  String?     @map("password_hash")
+  activo        Boolean     @default(true)
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  ventas        Venta[]     @relation("VendedorVentas")
+  pagos         Pago[]      @relation("CobradorPagos")
+  despachos     Despacho[]  @relation("DespachadorDespachos")
+  movimientos   InventarioMovimiento[]
+
+  @@map("usuarios")
+}
+
+model Categoria {
+  id          Int       @id @default(autoincrement())
+  nombre      String    @unique @db.VarChar(80)
+  descripcion String?
+  activa      Boolean   @default(true)
+
+  productos   Producto[]
+
+  @@map("categorias")
+}
+
+model Proveedor {
+  id          String    @id @default(uuid())
+  nombre      String    @db.VarChar(150)
+  nit         String?   @unique @db.VarChar(20)
+  telefono    String?   @db.VarChar(20)
+  email       String?   @db.VarChar(150)
+  direccion   String?
+  contacto    String?   @db.VarChar(100)
+  activo      Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  productos   Producto[]
+
+  @@map("proveedores")
+}
+
+model Producto {
+  id            String      @id @default(uuid())
+  codigo        String      @unique @db.VarChar(30)
+  nombre        String      @db.VarChar(200)
+  descripcion   String?
+  categoriaId   Int         @map("categoria_id")
+  proveedorId   String?     @map("proveedor_id")
+  precio        Decimal     @db.Decimal(15, 2)
+  costo         Decimal?    @db.Decimal(15, 2)
+  stock         Int         @default(0)
+  stockMinimo   Int         @default(0) @map("stock_minimo")
+  imagenUrl     String?     @map("imagen_url")
+  activo        Boolean     @default(true)
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  categoria     Categoria   @relation(fields: [categoriaId], references: [id])
+  proveedor     Proveedor?  @relation(fields: [proveedorId], references: [id])
+  ventaItems    VentaItem[]
+  garantias     Garantia[]
+  movimientos   InventarioMovimiento[]
+
+  @@map("productos")
+}
+
+model Cliente {
+  id              String        @id @default(uuid())
+  nombre          String        @db.VarChar(150)
+  documento       String?       @db.VarChar(20)
+  tipoDocumento   TipoDocumento @default(CC) @map("tipo_documento")
+  telefono        String?       @db.VarChar(20)
+  email           String?       @db.VarChar(150)
+  direccion       String?
+  barrio          String?       @db.VarChar(100)
+  ciudad          String        @default("Cali") @db.VarChar(100)
+  cupoCredito     Decimal       @default(0) @db.Decimal(15, 2) @map("cupo_credito")
+  saldoDeuda      Decimal       @default(0) @db.Decimal(15, 2) @map("saldo_deuda")
+  activo          Boolean       @default(true)
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  ventas          Venta[]
+  garantias       Garantia[]
+
+  @@unique([documento, tipoDocumento])
+  @@map("clientes")
+}
+
+model Venta {
+  id            String      @id @default(uuid())
+  numero        String      @unique @db.VarChar(20)
+  clienteId     String?     @map("cliente_id")
+  vendedorId    String?     @map("vendedor_id")
+  tipo          TipoVenta
+  estado        EstadoVenta @default(pendiente)
+  subtotal      Decimal     @db.Decimal(15, 2)
+  descuento     Decimal     @default(0) @db.Decimal(15, 2)
+  total         Decimal     @db.Decimal(15, 2)
+  numCuotas     Int?        @map("num_cuotas")
+  observaciones String?
+  fecha         DateTime    @default(now()) @db.Date
+
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  cliente       Cliente?    @relation(fields: [clienteId], references: [id])
+  vendedor      Usuario?    @relation("VendedorVentas", fields: [vendedorId], references: [id])
+  items         VentaItem[]
+  cuotas        Cuota[]
+  despachos     Despacho[]
+
+  @@map("ventas")
+}
+
+model VentaItem {
+  id          String    @id @default(uuid())
+  ventaId     String    @map("venta_id")
+  productoId  String    @map("producto_id")
+  nombreSnap  String    @map("nombre_snap") @db.VarChar(200)
+  precioSnap  Decimal   @map("precio_snap") @db.Decimal(15, 2)
+  costoSnap   Decimal?  @map("costo_snap") @db.Decimal(15, 2)
+  cantidad    Int
+  subtotal    Decimal   @db.Decimal(15, 2)
+
+  venta       Venta     @relation(fields: [ventaId], references: [id], onDelete: Cascade)
+  producto    Producto  @relation(fields: [productoId], references: [id])
+  garantias   Garantia[]
+
+  @@map("venta_items")
+}
+
+model Cuota {
+  id          String      @id @default(uuid())
+  ventaId     String      @map("venta_id")
+  numero      Int
+  valor       Decimal     @db.Decimal(15, 2)
+  saldo       Decimal     @db.Decimal(15, 2)
+  fechaVence  DateTime    @map("fecha_vence") @db.Date
+  estado      EstadoCuota @default(pendiente)
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  venta       Venta       @relation(fields: [ventaId], references: [id], onDelete: Cascade)
+  pagos       Pago[]
+
+  @@unique([ventaId, numero])
+  @@map("cuotas")
+}
+
+model Pago {
+  id            String      @id @default(uuid())
+  cuotaId       String      @map("cuota_id")
+  cobradorId    String?     @map("cobrador_id")
+  valor         Decimal     @db.Decimal(15, 2)
+  metodo        MetodoPago  @default(efectivo)
+  referencia    String?     @db.VarChar(100)
+  observaciones String?
+  fecha         DateTime    @default(now()) @db.Date
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  cuota         Cuota       @relation(fields: [cuotaId], references: [id])
+  cobrador      Usuario?    @relation("CobradorPagos", fields: [cobradorId], references: [id])
+
+  @@map("pagos")
+}
+
+model Garantia {
+  id            String          @id @default(uuid())
+  ventaItemId   String?         @map("venta_item_id")
+  productoId    String          @map("producto_id")
+  clienteId     String?         @map("cliente_id")
+  serial        String?         @db.VarChar(100)
+  fechaVenta    DateTime        @map("fecha_venta") @db.Date
+  meses         Int
+  fechaVence    DateTime        @map("fecha_vence") @db.Date
+  estado        EstadoGarantia  @default(activa)
+  observaciones String?
+  createdAt     DateTime        @default(now()) @map("created_at")
+
+  ventaItem     VentaItem?      @relation(fields: [ventaItemId], references: [id])
+  producto      Producto        @relation(fields: [productoId], references: [id])
+  cliente       Cliente?        @relation(fields: [clienteId], references: [id])
+
+  @@map("garantias")
+}
+
+model Despacho {
+  id               String          @id @default(uuid())
+  ventaId          String          @map("venta_id")
+  despachadorId    String?         @map("despachador_id")
+  direccion        String
+  ciudad           String          @default("Cali") @db.VarChar(100)
+  estado           EstadoDespacho  @default(pendiente)
+  fechaProgramada  DateTime?       @map("fecha_programada") @db.Date
+  fechaEntrega     DateTime?       @map("fecha_entrega")
+  observaciones    String?
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  venta            Venta           @relation(fields: [ventaId], references: [id])
+  despachador      Usuario?        @relation("DespachadorDespachos", fields: [despachadorId], references: [id])
+
+  @@map("despachos")
+}
+
+model InventarioMovimiento {
+  id              String          @id @default(uuid())
+  productoId      String          @map("producto_id")
+  usuarioId       String?         @map("usuario_id")
+  tipo            TipoMovimiento
+  cantidad        Int
+  stockAntes      Int             @map("stock_antes")
+  stockDespues    Int             @map("stock_despues")
+  referenciaTipo  String?         @map("referencia_tipo") @db.VarChar(30)
+  referenciaId    String?         @map("referencia_id")
+  observaciones   String?
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  producto        Producto        @relation(fields: [productoId], references: [id])
+  usuario         Usuario?        @relation(fields: [usuarioId], references: [id])
+
+  @@map("inventario_movimientos")
+}
