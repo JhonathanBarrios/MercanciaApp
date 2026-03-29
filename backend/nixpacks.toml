@@ -2,7 +2,7 @@
 aptPkgs = ["openssl", "ca-certificates"]
 
 [phases.install]
-cmds = ["npm install"]
+cmds = ["npm install --include=dev"]
 
 [phases.build]
 cmds = ["npx prisma generate", "npm run build"]
