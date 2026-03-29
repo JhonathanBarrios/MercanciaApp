@@ -1,4 +1,10 @@
+import axios from 'axios'
 import { api } from './client'
+
+const publicApi = axios.create({
+  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api',
+  headers: { 'Content-Type': 'application/json' },
+})
 
 // ─── Auth ────────────────────────────────────────────────────
 export const authApi = {
@@ -62,6 +68,12 @@ export const despachosApi = {
   obtener: (id: string) => api.get(`/despachos/${id}`).then(r => r.data),
   actualizar: (id: string, data: any) => api.patch(`/despachos/${id}`, data).then(r => r.data),
   crear: (data: any) => api.post('/despachos/crear', data).then(r => r.data),
+}
+
+// ─── Pedidos públicos (tienda) ───────────────────────────────
+export const pedidosApi = {
+  crear: (data: { nombre: string; email: string; celular: string; direccion?: string; items: { productoId: string; cantidad: number }[] }) =>
+    publicApi.post('/pedidos', data).then(r => r.data),
 }
 
 // ─── Reportes ────────────────────────────────────────────────

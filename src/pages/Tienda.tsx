@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
-import { ShoppingCart, Search, Store, X, Plus, Minus, CheckCircle, RefreshCw } from 'lucide-react'
-import { productosApi } from '../api/services'
-import { Link } from 'react-router-dom'
+import { ShoppingCart, Search, Store, X, Plus, Minus, CheckCircle, RefreshCw, Loader2 } from 'lucide-react'
+import { productosApi, pedidosApi } from '../api/services'
 
 const fmt = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
 
@@ -20,6 +19,10 @@ export default function Tienda() {
   const [cart, setCart]           = useState<CartItem[]>([])
   const [cartOpen, setCartOpen]   = useState(false)
   const [pedidoEnviado, setPedidoEnviado] = useState(false)
+  const [enviando, setEnviando]           = useState(false)
+  const [numeroPedido, setNumeroPedido]   = useState('')
+  const [form, setForm] = useState({ nombre: '', email: '', celular: '', direccion: '' })
+  const [formError, setFormError] = useState('')
 
   useEffect(() => {
     productosApi.listar()
@@ -54,10 +57,30 @@ export default function Tienda() {
   const total      = cart.reduce((s, c) => s + c.precio * c.cantidad, 0)
   const totalItems = cart.reduce((s, c) => s + c.cantidad, 0)
 
-  const enviarPedido = () => {
-    setPedidoEnviado(true)
-    setCart([])
-    setTimeout(() => { setPedidoEnviado(false); setCartOpen(false) }, 3000)
+  const enviarPedido = async () => {
+    if (!form.nombre.trim() || !form.email.trim() || !form.celular.trim()) {
+      setFormError('Nombre, correo y celular son obligatorios')
+      return
+    }
+    setFormError('')
+    setEnviando(true)
+    try {
+      const res = await pedidosApi.crear({
+        nombre: form.nombre,
+        email: form.email,
+        celular: form.celular,
+        direccion: form.direccion || undefined,
+        items: cart.map(c => ({ productoId: c.id, cantidad: c.cantidad })),
+      })
+      setNumeroPedido(res.numero)
+      setPedidoEnviado(true)
+      setCart([])
+      setForm({ nombre: '', email: '', celular: '', direccion: '' })
+    } catch (e: any) {
+      setFormError(e.response?.data?.message ?? 'Error al enviar el pedido. Intenta de nuevo.')
+    } finally {
+      setEnviando(false)
+    }
   }
 
   return (
@@ -192,7 +215,9 @@ export default function Tienda() {
               <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
                 <CheckCircle size={56} className="text-green-500 mb-4" />
                 <h3 className="font-bold text-gray-900 text-lg mb-2">¡Pedido enviado!</h3>
-                <p className="text-gray-500 text-sm">Tu solicitud de despacho fue recibida. Te contactaremos pronto.</p>
+                {numeroPedido && <p className="text-blue-600 font-bold text-sm mb-1">Número: {numeroPedido}</p>}
+                <p className="text-gray-500 text-sm mb-4">Tu solicitud fue registrada. Te contactaremos pronto.</p>
+                <button onClick={() => { setPedidoEnviado(false); setCartOpen(false) }} className="btn-primary text-sm px-6 py-2">Cerrar</button>
               </div>
             ) : cart.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8">
@@ -231,23 +256,33 @@ export default function Tienda() {
                     <span className="text-blue-600 text-lg">{fmt(total)}</span>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Tu nombre</label>
-                    <input
-                      type="text"
-                      placeholder="Ej: María García"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Nombre completo <span className="text-red-500">*</span></label>
+                    <input type="text" placeholder="Ej: María García"
+                      value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Correo electrónico <span className="text-red-500">*</span></label>
+                    <input type="email" placeholder="correo@ejemplo.com"
+                      value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Celular <span className="text-red-500">*</span></label>
+                    <input type="tel" placeholder="3001234567"
+                      value={form.celular} onChange={e => setForm(f => ({ ...f, celular: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">Dirección de entrega</label>
-                    <input
-                      type="text"
-                      placeholder="Calle, barrio, ciudad"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                    <input type="text" placeholder="Calle, barrio, ciudad"
+                      value={form.direccion} onChange={e => setForm(f => ({ ...f, direccion: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
-                  <button onClick={enviarPedido} className="w-full btn-primary py-3 text-sm font-semibold">
-                    Solicitar Despacho
+                  {formError && <p className="text-red-500 text-xs">{formError}</p>}
+                  <button onClick={enviarPedido} disabled={enviando}
+                    className="w-full btn-primary py-3 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-60">
+                    {enviando ? <><Loader2 size={16} className="animate-spin" /> Enviando...</> : 'Solicitar Despacho'}
                   </button>
                 </div>
               </>
