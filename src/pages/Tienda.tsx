@@ -75,9 +75,6 @@ export default function Tienda() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <Link to="/admin" className="text-blue-200 hover:text-white text-sm transition-colors hidden sm:block">
-              Panel Admin
-            </Link>
             <button
               onClick={() => setCartOpen(true)}
               className="relative bg-blue-700 hover:bg-blue-600 px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
