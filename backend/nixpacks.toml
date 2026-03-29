@@ -1,0 +1,12 @@
+[phases.setup]
+# Needed for bcrypt and other native deps on alpine-like images
+aptPkgs = ["openssl", "ca-certificates"]
+
+[phases.install]
+cmds = ["npm ci"]
+
+[phases.build]
+cmds = ["npx prisma generate", "npm run build"]
+
+[start]
+cmd = "npx prisma migrate deploy && node dist/main"
