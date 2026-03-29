@@ -1,5 +1,7 @@
+[variables]
+NODE_VERSION = "20.19.0"
+
 [phases.setup]
-# Needed for bcrypt and other native deps on alpine-like images
 aptPkgs = ["openssl", "ca-certificates"]
 
 [phases.install]
