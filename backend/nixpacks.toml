@@ -4,8 +4,5 @@ aptPkgs = ["openssl", "ca-certificates"]
 [phases.install]
 cmds = ["npm install --include=dev"]
 
-[phases.build]
-cmds = ["npx prisma generate", "npm run build"]
-
 [start]
-cmd = "npx prisma migrate deploy && node dist/main"
+cmd = "npx prisma generate && npm run build && npx prisma migrate deploy && npx prisma db seed && node dist/main"
